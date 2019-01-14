@@ -30,6 +30,11 @@ public class Main {
 
 	private static final String RULES_LIST = DIRECTORY + "java_rules.json";
 	private static final String PROJECTS_LIST = DIRECTORY + "java_project_list.json";
+	
+	static {
+		if (SONAR_API_URL == null || SONAR_API_URL.isEmpty())
+			throw new IllegalStateException("Please change the value of SONAR_API_URL");
+	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
 		retrieveAndWriteRules();
@@ -48,7 +53,8 @@ public class Main {
 	}
 
 	private static void retrieveAndWriteProjects() throws IOException, InterruptedException {
-		JavaProjectsRetriever jpr = new JavaProjectsRetriever.Builder(SONAR_API_URL).build();
+		JavaProjectsRetriever jpr = new JavaProjectsRetriever.Builder(SONAR_API_URL)
+				.isSonarCloud(false).build();
 		List<Project> sonarJavaProjects = jpr.retrieve();
 		Utils.writeObjToFileAsJSON(sonarJavaProjects, PROJECTS_LIST);
 	}

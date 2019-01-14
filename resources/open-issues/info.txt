@@ -1,0 +1,1 @@
+Folder that should contain open issues for projects

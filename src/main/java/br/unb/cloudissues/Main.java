@@ -25,8 +25,8 @@ public class Main {
 	private static final String ISSUES_SEARCH_URL = SONAR_API_URL + "/issues/search";
 
 	private static final String DIRECTORY = "resources/";
-	private static final String FIXED_DIRECTORY = DIRECTORY + "fixed";
-	private static final String OPEN_DIRECTORY = DIRECTORY + "open-issues";
+	private static final String FIXED_DIRECTORY = DIRECTORY + "fixed/";
+	private static final String OPEN_DIRECTORY = DIRECTORY + "open-issues/";
 
 	private static final String RULES_LIST = DIRECTORY + "java_rules.json";
 	private static final String PROJECTS_LIST = DIRECTORY + "java_project_list.json";

@@ -1,0 +1,1 @@
+Folder that should contain WONTFIX and FALSE-POSITIVE issues for projects

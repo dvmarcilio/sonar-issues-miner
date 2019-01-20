@@ -30,7 +30,10 @@ public class Main {
 
 	private static final String RULES_LIST = DIRECTORY + "java_rules.json";
 	private static final String PROJECTS_LIST = DIRECTORY + "java_project_list.json";
-	
+
+	private static final String WONT_FIX_FALSE_POSITIVE_DIRECTORY = DIRECTORY
+			+ "wont-fix-false-positive/";
+
 	static {
 		if (SONAR_API_URL == null || SONAR_API_URL.isEmpty())
 			throw new IllegalStateException("Please change the value of SONAR_API_URL");
@@ -44,6 +47,9 @@ public class Main {
 		requestAndWriteFixedViolationsOneFilePerProject(PROJECTS_LIST, FIXED_DIRECTORY);
 
 		requestAndWriteOpenViolationsOneFilePerProject(PROJECTS_LIST, OPEN_DIRECTORY);
+
+		requestAndWriteFalsePositiveAndWontFixViolations(PROJECTS_LIST,
+				WONT_FIX_FALSE_POSITIVE_DIRECTORY);
 	}
 
 	private static void retrieveAndWriteRules() throws IOException, InterruptedException {
@@ -112,6 +118,35 @@ public class Main {
 				.withMaxRequestsToWait(15) //
 				.withTimeToWaitInMiliSecondsBetweenRequests(10_000) //
 				.withStatuses(Statuses.OPEN) //
+				.build();
+
+		List<Violations> viols = violationsRetriever.retrieve(projects);
+
+		Utils.writeObjToFileAsJSON(viols, jsonPathToSave);
+	}
+
+	private static void requestAndWriteFalsePositiveAndWontFixViolations(String projectsJsonPath,
+			String wontFixFalsePositiveDirectory) throws IOException, InterruptedException {
+		List<Project> projects = Utils.retrieveCollectionFromJSONFile(projectsJsonPath,
+				Project.class);
+
+		for (Project project : projects) {
+			requestAndWriteFalsePositiveViolationsForProjects(
+					Utils.generateJsonPathToSaveForEachProject(wontFixFalsePositiveDirectory,
+							project.getProjectName()),
+					Arrays.asList(project));
+			waitBetweenPartitions(10_000);
+		}
+	}
+
+	private static void requestAndWriteFalsePositiveViolationsForProjects(String jsonPathToSave,
+			List<Project> projects) throws IOException {
+		ViolationsRetriever violationsRetriever = new ViolationsRetriever.Builder()
+				.withIsSonarCloud(false) //
+				.withBaseUrl(ISSUES_SEARCH_URL) //
+				.withMaxRequestsToWait(15) //
+				.withTimeToWaitInMiliSecondsBetweenRequests(10_000)
+				.withResolutions(Resolutions.FALSE_POSITIVE, Resolutions.WONTFIX) //
 				.build();
 
 		List<Violations> viols = violationsRetriever.retrieve(projects);

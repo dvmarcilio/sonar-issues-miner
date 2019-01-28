@@ -5,7 +5,7 @@
 	<groupId>br.unb</groupId>
 	<artifactId>sonar-issues-miner</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<packaging>war</packaging>
+	<packaging>jar</packaging>
 	<name>Sonar Issues Miner</name>
 
 	<dependencies>

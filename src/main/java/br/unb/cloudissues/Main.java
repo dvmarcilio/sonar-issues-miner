@@ -6,8 +6,10 @@ import java.util.List;
 
 import br.unb.cloudissues.http.JavaProjectsRetriever;
 import br.unb.cloudissues.http.JavaRulesRetriever;
+import br.unb.cloudissues.http.ProjectFilesRetriever;
 import br.unb.cloudissues.http.ViolationsRetriever;
 import br.unb.cloudissues.model.Project;
+import br.unb.cloudissues.model.ProjectFiles;
 import br.unb.cloudissues.model.Resolutions;
 import br.unb.cloudissues.model.Rule;
 import br.unb.cloudissues.model.Statuses;
@@ -34,6 +36,8 @@ public class Main {
 	private static final String WONT_FIX_FALSE_POSITIVE_DIRECTORY = DIRECTORY
 			+ "wont-fix-false-positive/";
 
+	private static final String FILES_METRICS_DIRECTORY = DIRECTORY + "files-metrics/";
+
 	static {
 		if (SONAR_API_URL == null || SONAR_API_URL.isEmpty())
 			throw new IllegalStateException("Please change the value of SONAR_API_URL");
@@ -50,6 +54,8 @@ public class Main {
 
 		requestAndWriteFalsePositiveAndWontFixViolations(PROJECTS_LIST,
 				WONT_FIX_FALSE_POSITIVE_DIRECTORY);
+		
+		projectsAndFilesMetrics();
 	}
 
 	private static void retrieveAndWriteRules() throws IOException, InterruptedException {
@@ -152,6 +158,22 @@ public class Main {
 		List<Violations> viols = violationsRetriever.retrieve(projects);
 
 		Utils.writeObjToFileAsJSON(viols, jsonPathToSave);
+	}
+
+	private static void projectsAndFilesMetrics() throws IOException {
+		ProjectFilesRetriever pfr = new ProjectFilesRetriever.Builder(SONAR_API_URL)
+				.maxRequestsToWait(25).timeToWaitInMiliSecondsBetWeenRequests(10_000).build();
+		List<Project> projects = Utils.retrieveCollectionFromJSONFile(PROJECTS_LIST, Project.class);
+		List<ProjectFiles> projectFilesList = pfr.retrieve(projects);
+
+		projectFilesList.forEach(projectFiles -> {
+			try {
+				Utils.writeObjToFileAsJSON(projectFiles, FILES_METRICS_DIRECTORY + Utils
+						.sanitizeProjectName(projectFiles.getProject().getProjectName() + ".json"));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		});
 	}
 
 }

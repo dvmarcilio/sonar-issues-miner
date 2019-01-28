@@ -1,0 +1,1 @@
+Folder that should contain projects's files and some metrics

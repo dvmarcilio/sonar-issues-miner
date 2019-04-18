@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import br.unb.cloudissues.http.JavaProjectsCSVRetriever;
 import br.unb.cloudissues.http.JavaProjectsRetriever;
 import br.unb.cloudissues.http.JavaRulesRetriever;
 import br.unb.cloudissues.http.ProjectFilesRetriever;
@@ -47,6 +48,7 @@ public class Main {
 		retrieveAndWriteRules();
 
 		retrieveAndWriteProjects();
+//		retrieveAndWriteProjectsIfApache();
 
 		requestAndWriteFixedViolationsOneFilePerProject(PROJECTS_LIST, FIXED_DIRECTORY);
 
@@ -54,7 +56,7 @@ public class Main {
 
 		requestAndWriteFalsePositiveAndWontFixViolations(PROJECTS_LIST,
 				WONT_FIX_FALSE_POSITIVE_DIRECTORY);
-		
+
 		projectsAndFilesMetrics();
 	}
 
@@ -71,8 +73,15 @@ public class Main {
 		Utils.writeObjToFileAsJSON(sonarJavaProjects, PROJECTS_LIST);
 	}
 
+	static void retrieveAndWriteProjectsIfApache() throws IOException {
+		JavaProjectsCSVRetriever jpr = new JavaProjectsCSVRetriever(SONAR_API_URL + "/projects");
+		Utils.writeObjToFileAsJSON(jpr.retrieve(), PROJECTS_LIST);
+	}
+
 	private static void requestAndWriteFixedViolationsOneFilePerProject(String projectsJsonPath,
 			String fixedDirectory) throws IOException, InterruptedException {
+		System.out.println("\nRetrieving fixed violations");
+
 		List<Project> projects = Utils.retrieveCollectionFromJSONFile(projectsJsonPath,
 				Project.class);
 
@@ -106,6 +115,8 @@ public class Main {
 
 	private static void requestAndWriteOpenViolationsOneFilePerProject(String projectsJsonPath,
 			String openDirectory) throws IOException, InterruptedException {
+		System.out.println("\nRetrieving open violations");
+
 		List<Project> projects = Utils.retrieveCollectionFromJSONFile(projectsJsonPath,
 				Project.class);
 
@@ -133,6 +144,8 @@ public class Main {
 
 	private static void requestAndWriteFalsePositiveAndWontFixViolations(String projectsJsonPath,
 			String wontFixFalsePositiveDirectory) throws IOException, InterruptedException {
+		System.out.println("\nRetrieving false positive and wont fix violations");
+
 		List<Project> projects = Utils.retrieveCollectionFromJSONFile(projectsJsonPath,
 				Project.class);
 
@@ -161,6 +174,8 @@ public class Main {
 	}
 
 	private static void projectsAndFilesMetrics() throws IOException {
+		System.out.println("\nRetrieving files and metrics");
+
 		ProjectFilesRetriever pfr = new ProjectFilesRetriever.Builder(SONAR_API_URL)
 				.maxRequestsToWait(25).timeToWaitInMiliSecondsBetWeenRequests(10_000).build();
 		List<Project> projects = Utils.retrieveCollectionFromJSONFile(PROJECTS_LIST, Project.class);

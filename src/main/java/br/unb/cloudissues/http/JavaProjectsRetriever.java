@@ -90,7 +90,7 @@ public class JavaProjectsRetriever {
 
 		count = 1;
 
-		System.out.println("\nretrieving Java projects in " + baseUrl);
+		System.out.println("\nretrieving Java projects in " + baseUrl + PROJECTS_SEARCH_URL);
 		return httpRequestJavaProjects();
 
 	}
@@ -117,10 +117,16 @@ public class JavaProjectsRetriever {
 	}
 
 	private String buildURL() {
+		HttpUrl.Builder urlBuilder = minimumUrlBuilder();
+		return urlBuilder.build().toString();
+	}
+
+	private HttpUrl.Builder minimumUrlBuilder() {
 		HttpUrl.Builder urlBuilder = HttpUrl.parse(baseUrl + PROJECTS_SEARCH_URL).newBuilder();
 		urlBuilder.addQueryParameter("filter", "languages=java");
 		urlBuilder.addQueryParameter("ps", DEFAULT_PAGE_SIZE.toString());
-		return urlBuilder.build().toString();
+		urlBuilder.addQueryParameter("format", "json");
+		return urlBuilder;
 	}
 
 	private String retrieveResponseBodyForURL(String url) throws IOException, InterruptedException {
@@ -195,9 +201,7 @@ public class JavaProjectsRetriever {
 	}
 
 	private String buildUrlForPage(Integer page) {
-		HttpUrl.Builder urlBuilder = HttpUrl.parse(baseUrl + PROJECTS_SEARCH_URL).newBuilder();
-		urlBuilder.addQueryParameter("filter", "languages=java");
-		urlBuilder.addQueryParameter("ps", DEFAULT_PAGE_SIZE.toString());
+		HttpUrl.Builder urlBuilder = minimumUrlBuilder();
 		urlBuilder.addQueryParameter("p", page.toString());
 		return urlBuilder.build().toString();
 	}

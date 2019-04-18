@@ -34,7 +34,7 @@ public class JavaRulesRetriever {
 
 	public List<Rule> retrieve() throws IOException, InterruptedException {
 		count = 1;
-		System.out.println("\n retrieving Java rules in " + baseUrl);
+		System.out.println("\nRetrieving Java rules in " + baseUrl + RULES_SEARCH_URL);
 		return httpRequestJavaRules();
 	}
 
@@ -100,7 +100,7 @@ public class JavaRulesRetriever {
 			remainingRules.addAll(requestRules(urlForPage));
 
 			System.out.println("\nretrieving page " + currentPage + "...");
-			
+
 			currentPage++;
 			retrievedSoFar += DEFAULT_PAGE_SIZE;
 		}

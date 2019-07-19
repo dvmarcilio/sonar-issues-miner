@@ -1,11 +1,7 @@
 package br.unb.cloudissues.http;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.google.gson.internal.LinkedTreeMap;
@@ -17,6 +13,8 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+
+import static java.util.stream.Collectors.toList;
 
 public class JavaProjectsRetriever {
 
@@ -107,7 +105,7 @@ public class JavaProjectsRetriever {
 				responseMap);
 
 		projects.addAll(projectsComponents.stream().map(SonarProjectComponent::toProject)
-				.collect(Collectors.toList()));
+				.collect(toList()));
 
 		if (total > DEFAULT_PAGE_SIZE) {
 			projects.addAll(requestsProjectsForMoreThanOnePage(total));
@@ -147,25 +145,29 @@ public class JavaProjectsRetriever {
 	private String doRetrieveResponseBodyForURL(String url) throws IOException {
 		Request request = new Request.Builder().url(url).build();
 		Response response = httpClient.newCall(request).execute();
-		return response.body().string();
+		return Objects.requireNonNull(response.body(), "The body returned null").string();
 	}
 
 	@SuppressWarnings("unchecked")
-	private List<SonarProjectComponent> retrieveSonarProjectComponentsFromResponseMap(
-			Map<String, Object> responseMap) {
-		List<LinkedTreeMap<String, Object>> components = (List<LinkedTreeMap<String, Object>>) responseMap
+	private List<SonarProjectComponent> retrieveSonarProjectComponentsFromResponseMap(final Map<String, Object> responseMap) {
+		final List<LinkedTreeMap<String, Object>> components = (List<LinkedTreeMap<String, Object>>) responseMap
 				.get("components");
-		List<SonarProjectComponent> projectsComponents = new ArrayList<>(components.size());
-		components.forEach(componentMap -> {
-			SonarProjectComponent spc = new SonarProjectComponent();
-			spc.setId((String) componentMap.get("id"));
-			spc.setOrganization((String) componentMap.get("organization"));
-			spc.setKey((String) componentMap.get("key"));
-			spc.setName((String) componentMap.get("name"));
-			spc.setTags((List<String>) componentMap.get("tags"));
-			projectsComponents.add(spc);
-		});
-		return projectsComponents;
+		return Optional.ofNullable(components)
+				.orElse(Collections.emptyList())
+				.stream()
+				.map(this::sonarProjectComponent)
+				.collect(toList());
+	}
+
+	@SuppressWarnings("unchecked")
+	private SonarProjectComponent sonarProjectComponent(final LinkedTreeMap<String, Object> componentMap) {
+		final SonarProjectComponent spc = new SonarProjectComponent();
+		spc.setId((String) componentMap.get("id"));
+		spc.setOrganization((String) componentMap.get("organization"));
+		spc.setKey((String) componentMap.get("key"));
+		spc.setName((String) componentMap.get("name"));
+		spc.setTags(Collections.unmodifiableList((List<String>) componentMap.get("tags")));
+		return spc;
 	}
 
 	private List<Project> requestsProjectsForMoreThanOnePage(Long total)
@@ -212,7 +214,7 @@ public class JavaProjectsRetriever {
 		List<SonarProjectComponent> projectsComponents = retrieveSonarProjectComponentsFromResponseMap(
 				responseMap);
 		return projectsComponents.stream().map(SonarProjectComponent::toProject)
-				.collect(Collectors.toList());
+				.collect(toList());
 	}
 
 }

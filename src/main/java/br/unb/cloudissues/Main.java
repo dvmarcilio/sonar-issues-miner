@@ -2,6 +2,7 @@ package br.unb.cloudissues;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import br.unb.cloudissues.http.JavaProjectsCSVRetriever;
@@ -23,7 +24,7 @@ public class Main {
 	// example: "https://sonar.eclipse.org/api/"
 	// example: "https://builds.apache.org/analysis/api"
 	// example: "https://sonarcloud.io/api"
-	private static final String SONAR_API_URL = "";
+	private static final String SONAR_API_URL = System.getenv("SONAR_API_URL");
 
 	private static final String ISSUES_SEARCH_URL = SONAR_API_URL + "/issues/search";
 
@@ -87,7 +88,7 @@ public class Main {
 
 		for (Project project : projects) {
 			requestAndWriteFixedViolationsForProjects(Utils.generateJsonPathToSaveForEachProject(
-					fixedDirectory, project.getProjectName()), Arrays.asList(project));
+					fixedDirectory, project.getProjectName()), Collections.singletonList(project));
 			waitBetweenPartitions(10_000);
 		}
 	}
@@ -122,7 +123,7 @@ public class Main {
 
 		for (Project project : projects) {
 			requestAndWriteOpenViolationsForProjects(Utils.generateJsonPathToSaveForEachProject(
-					openDirectory, project.getProjectName()), Arrays.asList(project));
+					openDirectory, project.getProjectName()), Collections.singletonList(project));
 			waitBetweenPartitions(10_000);
 		}
 	}
@@ -152,8 +153,7 @@ public class Main {
 		for (Project project : projects) {
 			requestAndWriteFalsePositiveViolationsForProjects(
 					Utils.generateJsonPathToSaveForEachProject(wontFixFalsePositiveDirectory,
-							project.getProjectName()),
-					Arrays.asList(project));
+							project.getProjectName()), Collections.singletonList(project));
 			waitBetweenPartitions(10_000);
 		}
 	}

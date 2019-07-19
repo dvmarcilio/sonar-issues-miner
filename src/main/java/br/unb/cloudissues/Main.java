@@ -2,6 +2,7 @@ package br.unb.cloudissues;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import br.unb.cloudissues.http.JavaProjectsCSVRetriever;
@@ -87,7 +88,7 @@ public class Main {
 
 		for (Project project : projects) {
 			requestAndWriteFixedViolationsForProjects(Utils.generateJsonPathToSaveForEachProject(
-					fixedDirectory, project.getProjectName()), Arrays.asList(project));
+					fixedDirectory, project.getProjectName()), Collections.singletonList(project));
 			waitBetweenPartitions(10_000);
 		}
 	}

@@ -1,21 +1,14 @@
 package br.unb.cloudissues;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-
-import br.unb.cloudissues.http.JavaProjectsCSVRetriever;
-import br.unb.cloudissues.http.JavaProjectsRetriever;
-import br.unb.cloudissues.http.JavaRulesRetriever;
-import br.unb.cloudissues.http.ProjectFilesRetriever;
-import br.unb.cloudissues.http.ViolationsRetriever;
-import br.unb.cloudissues.model.Project;
-import br.unb.cloudissues.model.ProjectFiles;
-import br.unb.cloudissues.model.Resolutions;
-import br.unb.cloudissues.model.Rule;
-import br.unb.cloudissues.model.Statuses;
-import br.unb.cloudissues.model.Violations;
+import br.unb.cloudissues.http.*;
+import br.unb.cloudissues.model.*;
 import br.unb.cloudissues.util.Utils;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Main {
 
@@ -23,7 +16,7 @@ public class Main {
 	// example: "https://sonar.eclipse.org/api/"
 	// example: "https://builds.apache.org/analysis/api"
 	// example: "https://sonarcloud.io/api"
-	private static final String SONAR_API_URL = "";
+	private static final String SONAR_API_URL = System.getenv("SONAR_API_URL");
 
 	private static final String ISSUES_SEARCH_URL = SONAR_API_URL + "/issues/search";
 
@@ -43,6 +36,8 @@ public class Main {
 		if (SONAR_API_URL == null || SONAR_API_URL.isEmpty())
 			throw new IllegalStateException("Please change the value of SONAR_API_URL");
 	}
+
+	private static final ExecutorService executorService = Executors.newWorkStealingPool();
 
 	public static void main(String[] args) throws IOException, InterruptedException {
 		retrieveAndWriteRules();
@@ -79,67 +74,84 @@ public class Main {
 	}
 
 	private static void requestAndWriteFixedViolationsOneFilePerProject(String projectsJsonPath,
-			String fixedDirectory) throws IOException, InterruptedException {
+			String fixedDirectory) {
 		System.out.println("\nRetrieving fixed violations");
+		try {
+			final List<Project> projects = Utils.retrieveCollectionFromJSONFile(projectsJsonPath, Project.class);
+			for (Project project : projects) {
+				executorService.submit(registerTaskAndWaitTime(() -> requestAndWriteFixedViolationsForProjects(
+						Utils.generateJsonPathToSaveForEachProject(fixedDirectory, project.getProjectName()),
+						Collections.singletonList(project)), 10_000));
 
-		List<Project> projects = Utils.retrieveCollectionFromJSONFile(projectsJsonPath,
-				Project.class);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
-		for (Project project : projects) {
-			requestAndWriteFixedViolationsForProjects(Utils.generateJsonPathToSaveForEachProject(
-					fixedDirectory, project.getProjectName()), Arrays.asList(project));
-			waitBetweenPartitions(10_000);
+	}
+
+	private static Runnable registerTaskAndWaitTime(final Runnable supllier, int timeInMiliSeconds) {
+		return () -> {
+			supllier.run();
+			waitBetweenPartitions(timeInMiliSeconds);
+		};
+	}
+
+	private static void requestAndWriteFixedViolationsForProjects(String jsonPathToSave, List<Project> projects) {
+		try {
+			ViolationsRetriever violationsRetriever = new ViolationsRetriever.Builder().withIsSonarCloud(false) //
+					.withBaseUrl(ISSUES_SEARCH_URL) //
+					.withMaxRequestsToWait(15) //
+					.withTimeToWaitInMiliSecondsBetweenRequests(10_000).withResolutions(Resolutions.FIXED) //
+					.build();
+
+			List<Violations> viols = violationsRetriever.retrieve(projects);
+
+			Utils.writeObjToFileAsJSON(viols, jsonPathToSave);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	private static void waitBetweenPartitions(final int timeInMiliSeconds) {
+		try {
+			System.out.println("\nwaiting " + (timeInMiliSeconds / 1000) + " seconds between partitions...");
+			Thread.sleep(timeInMiliSeconds);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
 	}
 
-	private static void requestAndWriteFixedViolationsForProjects(String jsonPathToSave,
-			List<Project> projects) throws IOException {
-		ViolationsRetriever violationsRetriever = new ViolationsRetriever.Builder()
-				.withIsSonarCloud(false) //
-				.withBaseUrl(ISSUES_SEARCH_URL) //
-				.withMaxRequestsToWait(15) //
-				.withTimeToWaitInMiliSecondsBetweenRequests(10_000)
-				.withResolutions(Resolutions.FIXED) //
-				.build();
-
-		List<Violations> viols = violationsRetriever.retrieve(projects);
-
-		Utils.writeObjToFileAsJSON(viols, jsonPathToSave);
-	}
-
-	private static void waitBetweenPartitions(int timeInMiliSeconds) throws InterruptedException {
-		System.out.println(
-				"\nwaiting " + (timeInMiliSeconds / 1000) + " seconds between partitions...");
-		Thread.sleep(timeInMiliSeconds);
-	}
-
-	private static void requestAndWriteOpenViolationsOneFilePerProject(String projectsJsonPath,
-			String openDirectory) throws IOException, InterruptedException {
+	private static void requestAndWriteOpenViolationsOneFilePerProject(String projectsJsonPath, String openDirectory)
+			throws IOException {
 		System.out.println("\nRetrieving open violations");
 
-		List<Project> projects = Utils.retrieveCollectionFromJSONFile(projectsJsonPath,
+		final List<Project> projects = Utils.retrieveCollectionFromJSONFile(projectsJsonPath,
 				Project.class);
 
 		for (Project project : projects) {
-			requestAndWriteOpenViolationsForProjects(Utils.generateJsonPathToSaveForEachProject(
-					openDirectory, project.getProjectName()), Arrays.asList(project));
-			waitBetweenPartitions(10_000);
+			executorService.submit(registerTaskAndWaitTime(() -> requestAndWriteOpenViolationsForProjects(
+					Utils.generateJsonPathToSaveForEachProject(openDirectory, project.getProjectName()),
+					Collections.singletonList(project)), 10_000));
 		}
 	}
 
-	private static void requestAndWriteOpenViolationsForProjects(String jsonPathToSave,
-			List<Project> projects) throws IOException {
-		ViolationsRetriever violationsRetriever = new ViolationsRetriever.Builder()
-				.withIsSonarCloud(false) //
-				.withBaseUrl(ISSUES_SEARCH_URL) //
-				.withMaxRequestsToWait(15) //
-				.withTimeToWaitInMiliSecondsBetweenRequests(10_000) //
-				.withStatuses(Statuses.OPEN) //
-				.build();
+	private static void requestAndWriteOpenViolationsForProjects(String jsonPathToSave, List<Project> projects) {
+		try {
+			ViolationsRetriever violationsRetriever = new ViolationsRetriever.Builder().withIsSonarCloud(false) //
+					.withBaseUrl(ISSUES_SEARCH_URL) //
+					.withMaxRequestsToWait(15) //
+					.withTimeToWaitInMiliSecondsBetweenRequests(10_000) //
+					.withStatuses(Statuses.OPEN) //
+					.build();
 
-		List<Violations> viols = violationsRetriever.retrieve(projects);
+			List<Violations> viols = violationsRetriever.retrieve(projects);
 
-		Utils.writeObjToFileAsJSON(viols, jsonPathToSave);
+			Utils.writeObjToFileAsJSON(viols, jsonPathToSave);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	private static void requestAndWriteFalsePositiveAndWontFixViolations(String projectsJsonPath,
@@ -150,27 +162,28 @@ public class Main {
 				Project.class);
 
 		for (Project project : projects) {
-			requestAndWriteFalsePositiveViolationsForProjects(
-					Utils.generateJsonPathToSaveForEachProject(wontFixFalsePositiveDirectory,
-							project.getProjectName()),
-					Arrays.asList(project));
-			waitBetweenPartitions(10_000);
+			executorService.submit(registerTaskAndWaitTime(() -> requestAndWriteFalsePositiveViolationsForProjects(
+					Utils.generateJsonPathToSaveForEachProject(wontFixFalsePositiveDirectory, project.getProjectName()),
+					Collections.singletonList(project)), 10_000));
 		}
 	}
 
 	private static void requestAndWriteFalsePositiveViolationsForProjects(String jsonPathToSave,
-			List<Project> projects) throws IOException {
-		ViolationsRetriever violationsRetriever = new ViolationsRetriever.Builder()
-				.withIsSonarCloud(false) //
-				.withBaseUrl(ISSUES_SEARCH_URL) //
-				.withMaxRequestsToWait(15) //
-				.withTimeToWaitInMiliSecondsBetweenRequests(10_000)
-				.withResolutions(Resolutions.FALSE_POSITIVE, Resolutions.WONTFIX) //
-				.build();
+			List<Project> projects) {
+		try {
+			ViolationsRetriever violationsRetriever = new ViolationsRetriever.Builder().withIsSonarCloud(false) //
+					.withBaseUrl(ISSUES_SEARCH_URL) //
+					.withMaxRequestsToWait(15) //
+					.withTimeToWaitInMiliSecondsBetweenRequests(10_000)
+					.withResolutions(Resolutions.FALSE_POSITIVE, Resolutions.WONTFIX) //
+					.build();
 
-		List<Violations> viols = violationsRetriever.retrieve(projects);
+			List<Violations> viols = violationsRetriever.retrieve(projects);
 
-		Utils.writeObjToFileAsJSON(viols, jsonPathToSave);
+			Utils.writeObjToFileAsJSON(viols, jsonPathToSave);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private static void projectsAndFilesMetrics() throws IOException {

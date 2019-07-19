@@ -23,7 +23,7 @@ public class Main {
 	// example: "https://sonar.eclipse.org/api/"
 	// example: "https://builds.apache.org/analysis/api"
 	// example: "https://sonarcloud.io/api"
-	private static final String SONAR_API_URL = "";
+	private static final String SONAR_API_URL = System.getenv("SONAR_API_URL");
 
 	private static final String ISSUES_SEARCH_URL = SONAR_API_URL + "/issues/search";
 

@@ -123,7 +123,7 @@ public class Main {
 
 		for (Project project : projects) {
 			requestAndWriteOpenViolationsForProjects(Utils.generateJsonPathToSaveForEachProject(
-					openDirectory, project.getProjectName()), Arrays.asList(project));
+					openDirectory, project.getProjectName()), Collections.singletonList(project));
 			waitBetweenPartitions(10_000);
 		}
 	}
@@ -153,8 +153,7 @@ public class Main {
 		for (Project project : projects) {
 			requestAndWriteFalsePositiveViolationsForProjects(
 					Utils.generateJsonPathToSaveForEachProject(wontFixFalsePositiveDirectory,
-							project.getProjectName()),
-					Arrays.asList(project));
+							project.getProjectName()), Collections.singletonList(project));
 			waitBetweenPartitions(10_000);
 		}
 	}

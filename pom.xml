@@ -88,6 +88,7 @@
 					<annotationProcessors>
 						<!-- Add all the checkers you want to enable here -->
 						<annotationProcessor>org.checkerframework.checker.index.IndexChecker</annotationProcessor>
+						<annotationProcessor>org.checkerframework.checker.optional.OptionalChecker</annotationProcessor>
 					</annotationProcessors>
 					<compilerArgs>
 						<!-- If using JDK 8, use only the two arguments immediately below. -->

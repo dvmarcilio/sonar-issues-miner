@@ -7,183 +7,203 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import org.checkerframework.checker.index.qual.IndexFor;
+import org.checkerframework.checker.index.qual.IndexOrHigh;
+import org.checkerframework.checker.index.qual.LTEqLengthOf;
+import org.checkerframework.checker.index.qual.LTLengthOf;
+import org.checkerframework.checker.index.qual.NonNegative;
+
 public class Project {
 
-	private String id;
+    private String id;
 
-	private String organization;
+    private String organization;
 
-	private String projectName;
+    private String projectName;
 
-	private String projectKey;
+    private String projectKey;
 
-	private List<String> tags;
+    private List<String> tags;
 
-	private boolean isGitHub;
+    private boolean isGitHub;
 
-	private List<ProjectLink> links;
+    private List<ProjectLink> links;
 
-	private transient String normalizedGithubUrl;
+    private transient String normalizedGithubUrl;
 
-	public Project() {
-	}
+    public Project() {
+    }
 
-	public Project(Project project) {
-		setId(project.id);
-		setOrganization(project.organization);
-		setProjectName(project.projectName);
-		setProjectKey(project.projectKey);
-		setTags(new ArrayList<String>(
-				Optional.ofNullable(project.tags).orElse(Collections.emptyList())));
-		setLinks(new ArrayList<ProjectLink>(
-				Optional.ofNullable(project.links).orElse(Collections.emptyList())));
-	}
+    public Project(Project project) {
+        setId(project.id);
+        setOrganization(project.organization);
+        setProjectName(project.projectName);
+        setProjectKey(project.projectKey);
+        setTags(new ArrayList<String>(
+                Optional.ofNullable(project.tags).orElse(Collections.emptyList())));
+        setLinks(new ArrayList<ProjectLink>(
+                Optional.ofNullable(project.links).orElse(Collections.emptyList())));
+    }
 
-	public String getNormalizedGithubURL() {
-		if (normalizedGithubUrl == null) {
-			normalizedGithubUrl = doGetNormalizedGithubURL();
-		}
-		return normalizedGithubUrl;
-	}
+    public String getNormalizedGithubURL() {
+        if (normalizedGithubUrl == null) {
+            normalizedGithubUrl = doGetNormalizedGithubURL();
+        }
+        return normalizedGithubUrl;
+    }
 
-	private String doGetNormalizedGithubURL() {
-		checkGithubURLConditions();
-		String gitHubURL = getGithubURL();
-		int indexGhHttps = gitHubURL.indexOf(ProjectLink.GITHUB_HTTPS);
-		if (indexGhHttps != -1) {
-			return gitHubURL.substring(indexGhHttps);
-		} else {
-			return normalizeGitHubSshURL(gitHubURL);
-		}
-	}
+    private String doGetNormalizedGithubURL() {
+        checkGithubURLConditions();
+        String gitHubURL = getGithubURL();
+        int indexGhHttps = gitHubURL.indexOf(ProjectLink.GITHUB_HTTPS);
+        if (indexGhHttps != -1) {
+            return gitHubURL.substring(indexGhHttps);
+        } else {
+            return normalizeGitHubSshURL(gitHubURL);
+        }
+    }
 
-	private String normalizeGitHubSshURL(String gitHubURL) {
-		String ghSSH = findGhSSHForURL(gitHubURL);
-		int indexGhSSH = gitHubURL.indexOf(ghSSH);
-		int indexFileExt = findIndexFileExt(gitHubURL);
-		return ProjectLink.GITHUB_HTTPS
-				+ gitHubURL.substring(indexGhSSH + ghSSH.length(), indexFileExt);
-	}
+    private void checkGithubURLConditions() {
+        Objects.requireNonNull(links);
+        if (!isGitHub || links.isEmpty()) {
+            throw new IllegalStateException();
+        }
+    }
 
-	private String findGhSSHForURL(String gitHubURL) {
-		String ghSshCommon = ProjectLink.GITHUB_SSH + ":";
-		if (gitHubURL.contains(ghSshCommon)) {
-			return ghSshCommon;
-		} else if (gitHubURL.contains(ProjectLink.GITHUB_SSH + "/")) {
-			return ProjectLink.GITHUB_SSH + "/";
-		}
-		throw new IllegalArgumentException(
-				"ssh URL does not contain known substrings: " + gitHubURL);
-	}
+    private String getGithubURL() {
+        ProjectLink pl = links.stream().filter(ProjectLink::isGitHub).findFirst()
+                .orElseThrow(IllegalStateException::new);
+        return pl.getUrl();
+    }
 
-	private int findIndexFileExt(String gitHubURL) {
-		int indexFileExt = gitHubURL.indexOf(".git");
-		if (indexFileExt == -1) {
-			System.out.println("ssh URL does not contain known file suffix (.git): " + gitHubURL);
-			System.out.println("assuming end of string as already valid");
-			return gitHubURL.length();
-		}
-		return indexFileExt;
-	}
+    private String normalizeGitHubSshURL(String gitHubURL) {
+        @IndexFor("gitHubURL")
+        int indexGithubSSH = findIndexGithubSSH(gitHubURL);
+        @IndexOrHigh("gitHubURL")
+        int indexFileExt = findIndexFileExt(gitHubURL);
+        String fileURLWithoutSSH = gitHubURL.substring(indexGithubSSH, indexFileExt);
+        return ProjectLink.GITHUB_HTTPS + fileURLWithoutSSH;
+    }
 
-	private void checkGithubURLConditions() {
-		Objects.requireNonNull(links);
-		if (!isGitHub || links.isEmpty()) {
-			throw new IllegalStateException();
-		}
-	}
+    @SuppressWarnings("index:return.type.incompatible") // we are sure that ghSSH is within
+                                                        // gitHubURL because we checked multiple
+                                                        // times before, if not a RuntimeException
+                                                        // would be thrown
+    private @NonNegative @LTLengthOf("#1") int findIndexGithubSSH(String gitHubURL) {
+        String ghSSH = findGhSSHForURL(gitHubURL);
+        return gitHubURL.indexOf(ghSSH);
+    }
 
-	private String getGithubURL() {
-		ProjectLink pl = links.stream().filter(ProjectLink::isGitHub).findFirst()
-				.orElseThrow(IllegalStateException::new);
-		return pl.getUrl();
-	}
+    private String findGhSSHForURL(String gitHubURL) {
+        String ghSshCommon = ProjectLink.GITHUB_SSH + ":";
+        if (gitHubURL.contains(ghSshCommon)) {
+            return ghSshCommon;
+        } else if (gitHubURL.contains(ProjectLink.GITHUB_SSH + "/")) {
+            return ProjectLink.GITHUB_SSH + "/";
+        }
+        throw new IllegalArgumentException(
+                "ssh URL does not contain known substrings: " + gitHubURL);
+    }
 
-	public String getProjectName() {
-		return projectName;
-	}
+    @SuppressWarnings("index:return.type.incompatible") // we know that it's positive, because there
+                                                        // is an early return in the case of
+                                                        // indexFileExt == -1
+    private @NonNegative @LTEqLengthOf("#1") int findIndexFileExt(String gitHubURL) {
+        final String suffix = ".git";
+        int indexFileExt = gitHubURL.indexOf(suffix);
+        if (indexFileExt == -1) {
+            System.out.println("ssh URL does not contain known file suffix (.git): " + gitHubURL);
+            System.out.println("assuming end of string as already valid");
+            return gitHubURL.length();
+        }
+        return indexFileExt;
+    }
 
-	public void setProjectName(String projectName) {
-		this.projectName = projectName;
-	}
+    public String getProjectName() {
+        return projectName;
+    }
 
-	public String getProjectKey() {
-		return projectKey;
-	}
+    public void setProjectName(String projectName) {
+        this.projectName = projectName;
+    }
 
-	public void setProjectKey(String projectKey) {
-		this.projectKey = projectKey;
-	}
+    public String getProjectKey() {
+        return projectKey;
+    }
 
-	public boolean isGitHub() {
-		return isGitHub;
-	}
+    public void setProjectKey(String projectKey) {
+        this.projectKey = projectKey;
+    }
 
-	public String getId() {
-		return id;
-	}
+    public boolean isGitHub() {
+        return isGitHub;
+    }
 
-	public void setId(String id) {
-		this.id = id;
-	}
+    public String getId() {
+        return id;
+    }
 
-	public String getOrganization() {
-		return organization;
-	}
+    public void setId(String id) {
+        this.id = id;
+    }
 
-	public void setOrganization(String organization) {
-		this.organization = organization;
-	}
+    public String getOrganization() {
+        return organization;
+    }
 
-	public List<String> getTags() {
-		return tags;
-	}
+    public void setOrganization(String organization) {
+        this.organization = organization;
+    }
 
-	public void setTags(List<String> tags) {
-		this.tags = tags;
-	}
+    public List<String> getTags() {
+        return tags;
+    }
 
-	public List<ProjectLink> getLinks() {
-		return links;
-	}
+    public void setTags(List<String> tags) {
+        this.tags = tags;
+    }
 
-	public void setLinks(List<ProjectLink> links) {
-		this.links = links;
-		isGitHub = linksHasAGithubLink();
-	}
+    public List<ProjectLink> getLinks() {
+        return links;
+    }
 
-	private boolean linksHasAGithubLink() {
-		if (links == null || links.isEmpty()) {
-			return false;
-		}
-		return links.stream().filter(ProjectLink::isGitHub).findAny().isPresent();
-	}
+    public void setLinks(List<ProjectLink> links) {
+        this.links = links;
+        isGitHub = linksHasAGithubLink();
+    }
 
-	public Optional<ProjectLink> getSCMLink() {
-		return getLinkFromTypePredicate(ProjectLink::isSCM);
-	}
+    private boolean linksHasAGithubLink() {
+        if (links == null || links.isEmpty()) {
+            return false;
+        }
+        return links.stream().filter(ProjectLink::isGitHub).findAny().isPresent();
+    }
 
-	private Optional<ProjectLink> getLinkFromTypePredicate(Predicate<ProjectLink> predicate) {
-		if (links == null || links.isEmpty()) {
-			return Optional.empty();
-		}
-		return links.stream().filter(predicate).findFirst();
-	}
+    public Optional<ProjectLink> getSCMLink() {
+        return getLinkFromTypePredicate(ProjectLink::isSCM);
+    }
 
-	public Optional<ProjectLink> getIssueLink() {
-		return getLinkFromTypePredicate(ProjectLink::isIssue);
-	}
+    private Optional<ProjectLink> getLinkFromTypePredicate(Predicate<ProjectLink> predicate) {
+        if (links == null || links.isEmpty()) {
+            return Optional.empty();
+        }
+        return links.stream().filter(predicate).findFirst();
+    }
 
-	public Optional<ProjectLink> getHomePageLink() {
-		return getLinkFromTypePredicate(ProjectLink::isHomePage);
-	}
+    public Optional<ProjectLink> getIssueLink() {
+        return getLinkFromTypePredicate(ProjectLink::isIssue);
+    }
 
-	public Optional<ProjectLink> getCiLink() {
-		return getLinkFromTypePredicate(ProjectLink::isCI);
-	}
+    public Optional<ProjectLink> getHomePageLink() {
+        return getLinkFromTypePredicate(ProjectLink::isHomePage);
+    }
 
-	@Override
-	// @formatter:off
+    public Optional<ProjectLink> getCiLink() {
+        return getLinkFromTypePredicate(ProjectLink::isCI);
+    }
+
+    @Override
+    // @formatter:off
 	public String toString() {
 		return "Project [" +
 				"\n\tid = " + id + ", " +
@@ -197,22 +217,22 @@ public class Project {
 	}
 	// @formatter:on
 
-	@Override
-	public int hashCode() {
-		return Objects.hash(projectKey, projectName);
-	}
+    @Override
+    public int hashCode() {
+        return Objects.hash(projectKey, projectName);
+    }
 
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		Project other = (Project) obj;
-		return Objects.equals(projectKey, other.projectKey)
-				&& Objects.equals(projectName, other.projectName);
-	}
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        Project other = (Project) obj;
+        return Objects.equals(projectKey, other.projectKey)
+                && Objects.equals(projectName, other.projectName);
+    }
 
 }
